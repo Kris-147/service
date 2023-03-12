@@ -19,17 +19,12 @@ const User = sequelize.define('User', {
     },
     userrole: {
         type: DataTypes.STRING,
-        defaultValue: "user"
+        defaultValue: "user",
+        allowNull: false
     }
 }, {
     freezeTableName: true
 })
 
-// async function tongbu() {
-//     await sequelize.sync({ force: true });
-//     console.log("所有模型均已成功同步.");
-// }
-
-// tongbu()
 
 module.exports = User

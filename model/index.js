@@ -16,6 +16,7 @@ async function main() {
     try {
         await sequelize.authenticate();
         console.log('mysql连接成功');
+
     } catch (error) {
         console.error('连接失败:', error);
     }
