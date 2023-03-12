@@ -10,5 +10,6 @@ router
     .post("/add", verifyToken(), chapterController.addChapterName)
     .post("/del", verifyToken(), chapterController.delChapterName)
     .get("/search", verifyToken(), chapterController.searchChapter)
+    .get("/getallchapter", verifyToken(), chapterController.getAllChapter)
 
 module.exports = router

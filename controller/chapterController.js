@@ -145,3 +145,25 @@ exports.searchChapter = async(req, res) => {
         data: { chapterData, count }
     })
 }
+
+exports.getAllChapter = async(req, res) => {
+    const c = await Chapter.findAll({
+        order: [
+            ["chapterSort", "ASC"]
+        ]
+    })
+    let chapterData = []
+    for (let i = 0; i < c.length; i++) {
+        let { id, chapterName } = c[i].dataValues
+        let d = {
+            id: id,
+            chapterName: chapterName
+        }
+        chapterData.push(d)
+    }
+    res.json({
+        code: 1,
+        msg: "success",
+        data: chapterData
+    })
+}
