@@ -16,6 +16,11 @@ const Knowledge = sequelize.define('Knowledge', {
     content: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    knowledgeSort: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        unique: true
     }
 }, {
     freezeTableName: true
