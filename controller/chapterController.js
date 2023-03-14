@@ -1,4 +1,5 @@
 const Chapter = require("../model/chapterModel")
+const Chapter_Merge_Knowledge = require("../model/chapter_merge_knowledgeModel")
 const jwt = require('jsonwebtoken')
 const { createToken } = require('../utils/jwt')
 const sequelize = require("../model")
@@ -97,23 +98,46 @@ exports.addChapterName = async(req, res) => {
 
 exports.delChapterName = async(req, res) => {
     let id = req.body.id
-    Chapter.destroy({
+    const cmk = await Chapter_Merge_Knowledge.findAll({
         where: {
-            id: id
+            cid: id
         }
-    }).then(r => {
-        res.json({
-            code: 1,
-            msg: "删除成功",
-            data: null
-        })
-    }).catch(err => {
+    })
+    if (cmk.length) {
         res.json({
             code: 0,
-            msg: "删除失败",
-            data: null
+            msg: "删除失败，章节内还含有知识点"
         })
-    })
+    } else {
+        const c = await Chapter.findOne({
+            where: {
+                id: id
+            }
+        })
+        if (c) {
+            Chapter.destroy({
+                where: {
+                    id: id
+                }
+            }).then(r => {
+                res.json({
+                    code: 1,
+                    msg: "删除成功",
+                })
+            }).catch(err => {
+                res.json({
+                    code: 0,
+                    msg: "删除失败",
+                })
+            })
+        } else {
+            res.json({
+                code: 0,
+                msg: "不存在该章节"
+            })
+        }
+
+    }
 }
 
 exports.searchChapter = async(req, res) => {
