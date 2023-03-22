@@ -3,7 +3,7 @@ const Chapter_Merge_Knowledge = require("../model/chapter_merge_knowledgeModel")
 const jwt = require('jsonwebtoken')
 const { createToken } = require('../utils/jwt')
 const sequelize = require("../model")
-const { Op } = require("sequelize")
+const { Op, QueryTypes } = require("sequelize")
 
 exports.getallchapter = async(req, res) => {
     const { count, rows } = await Chapter.findAndCountAll({
@@ -190,4 +190,44 @@ exports.getAllChapter = async(req, res) => {
         msg: "success",
         data: chapterData
     })
+}
+
+exports.usergetall = async(req, res) => {
+    const result = await sequelize.query('SELECT chapterName,knowledgeName FROM chapter,knowledge,chapter_merge_knowledge WHERE chapter.id = chapter_merge_knowledge.cid AND knowledge.id = chapter_merge_knowledge.kid ORDER BY chapterSort,knowledgeSort', { type: QueryTypes.SELECT })
+        // const ans = [
+        //     {
+        //         chapterName:'yinlun',
+        //         children:[
+        //             {knowledge:'111'},
+        //             {knowledge:'222'}
+        //         ]
+        //     },
+        //     {
+        //         chapterName:'yinlun',
+        //         children:[
+        //             {knowledge:'111'},
+        //             {knowledge:'222'}
+        //         ]
+        //     },
+        // ]
+    const ans = []
+    let cn = result[0].chapterName
+    let kn = result[0].knowledgeName
+    let obj = { chapterName: cn, children: [kn] }
+    for (let i = 1; i < result.length; i++) {
+        if (result[i].chapterName == cn) {
+            obj.children.push(result[i].knowledgeName)
+        } else {
+            ans.push(obj)
+            cn = result[i].chapterName
+            obj = { chapterName: cn, children: [result[i].knowledgeName] }
+        }
+    }
+    console.log(ans);
+    res.send('111')
+        // res.json({
+        //     code: 1,
+        //     msg: "success",
+        //     data: ans
+        // })
 }
