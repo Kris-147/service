@@ -3,11 +3,13 @@ const jwt = require('jsonwebtoken')
 const { createToken } = require('../utils/jwt')
 const svgCaptcha = require('svg-captcha')
 const { Op } = require("sequelize")
+const { redis } = require('../model/redis/index')
 
 exports.login = async(req, res) => {
     let loginInfo = {
         username: req.body.username,
-        password: req.body.password
+        password: req.body.password,
+        userrole: "admin"
     }
     let code = req.body.code.toLowerCase()
         // console.log(code);
@@ -226,4 +228,140 @@ exports.searchUser = async(req, res) => {
         msg: 'success',
         data: { userData, count }
     })
+}
+
+exports.userlogin = async(req, res) => {
+    let loginInfo = {
+        username: req.body.username,
+        password: req.body.password,
+        userrole: "user"
+    }
+    let code = req.body.code.toLowerCase()
+    if (code !== req.session.captcha) {
+        res.send({
+            code: 0,
+            msg: '验证码不正确'
+        })
+    } else {
+        const user = await User.findOne({
+            attributes: ['id', 'username'],
+            where: {...loginInfo }
+        })
+        if (user) {
+            delete req.session.captcha
+            let r = Object.assign({}, user.dataValues)
+            JSON.stringify(r)
+                // console.log(r);
+            r.token = await createToken(r)
+            console.log(r);
+            res.status(200).json({
+                code: 1,
+                msg: '登录成功',
+                data: r
+            })
+        } else {
+            res.status(200).json({
+                code: 0,
+                msg: '账号或密码错误'
+            })
+        }
+    }
+}
+
+exports.userreg = async(req, res) => {
+    let username = req.body.username
+    let password = req.body.password
+    let email = req.body.email
+    const u = await User.findAll({
+        where: {
+            username: username
+        }
+    })
+    if (u.length) {
+        res.json({
+            code: 0,
+            msg: "用户名已存在",
+            data: null
+        })
+    } else {
+        const e = await User.findAll({
+            where: {
+                email: email
+            }
+        })
+        if (e.length) {
+            res.json({
+                code: 0,
+                msg: "邮箱已存在",
+                data: null
+            })
+        } else {
+            const n = await User.create({
+                username: username,
+                password: password,
+                email: email
+            })
+            if (n) {
+                res.json({
+                    code: 1,
+                    msg: "注册成功",
+                    data: null
+                })
+            } else {
+                res.json({
+                    code: 0,
+                    msg: "未知错误",
+                    data: null
+                })
+            }
+        }
+    }
+}
+
+exports.findpassword = async(req, res) => {
+    let email = req.body.email
+    let password = req.body.password
+    const e = await User.findAll({
+        where: {
+            email: email
+        }
+    })
+    if (e.length) {
+        const p = await User.update({
+            password: password
+        }, {
+            where: {
+                email: email
+            }
+        })
+        if (p) {
+            res.json({
+                code: 1,
+                msg: "success",
+                data: null
+            })
+        } else {
+            res.json({
+                code: 0,
+                msg: "未知错误",
+                data: null
+            })
+        }
+    } else {
+        res.json({
+            code: 0,
+            msg: "邮箱不存在",
+            data: null
+        })
+    }
+}
+
+exports.test = async(req, res) => {
+    let m = new Map()
+    m.set('15', '2,3,4')
+        // await redis.hset('favor', m)
+        // let k = await redis.hget('favor', m)
+    let k = await redis.hget('favor', '15')
+    console.log(typeof(k));
+    res.send('111')
 }

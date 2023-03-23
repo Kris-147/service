@@ -12,5 +12,6 @@ router
     .get("/search", verifyToken(), chapterController.searchChapter)
     .get("/getallchapter", verifyToken(), chapterController.getAllChapter)
     .get('/usergetall', chapterController.usergetall)
+    .get('/getcontent', chapterController.getcontent)
 
 module.exports = router

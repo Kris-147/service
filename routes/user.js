@@ -13,5 +13,9 @@ router
     .post("/add", verifyToken(), userController.addUser)
     .post("/del", verifyToken(), userController.delUser)
     .get("/search", verifyToken(), userController.searchUser)
+    .post('/userlogin', validator.login, userController.userlogin)
+    .post('/userreg', validator.reg, userController.userreg)
+    .post('/findpassword', validator.find, userController.findpassword)
+    .post('/test', userController.test)
 
 module.exports = router

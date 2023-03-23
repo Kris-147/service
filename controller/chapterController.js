@@ -193,41 +193,35 @@ exports.getAllChapter = async(req, res) => {
 }
 
 exports.usergetall = async(req, res) => {
-    const result = await sequelize.query('SELECT chapterName,knowledgeName FROM chapter,knowledge,chapter_merge_knowledge WHERE chapter.id = chapter_merge_knowledge.cid AND knowledge.id = chapter_merge_knowledge.kid ORDER BY chapterSort,knowledgeSort', { type: QueryTypes.SELECT })
-        // const ans = [
-        //     {
-        //         chapterName:'yinlun',
-        //         children:[
-        //             {knowledge:'111'},
-        //             {knowledge:'222'}
-        //         ]
-        //     },
-        //     {
-        //         chapterName:'yinlun',
-        //         children:[
-        //             {knowledge:'111'},
-        //             {knowledge:'222'}
-        //         ]
-        //     },
-        // ]
+    const result = await sequelize.query('SELECT chapterName,knowledge.id,knowledgeName FROM chapter,knowledge,chapter_merge_knowledge WHERE chapter.id = chapter_merge_knowledge.cid AND knowledge.id = chapter_merge_knowledge.kid ORDER BY chapterSort,knowledgeSort', { type: QueryTypes.SELECT })
     const ans = []
     let cn = result[0].chapterName
     let kn = result[0].knowledgeName
-    let obj = { chapterName: cn, children: [kn] }
+    let obj = { chapterName: cn, children: [{ knowledgeName: kn, kid: result[0].id }] }
     for (let i = 1; i < result.length; i++) {
         if (result[i].chapterName == cn) {
-            obj.children.push(result[i].knowledgeName)
+            let o = { knowledgeName: result[i].knowledgeName, kid: result[i].id }
+            obj.children.push(o)
         } else {
             ans.push(obj)
             cn = result[i].chapterName
-            obj = { chapterName: cn, children: [result[i].knowledgeName] }
+            obj = { chapterName: cn, children: [{ knowledgeName: result[i].knowledgeName, kid: result[i].id }] }
         }
     }
-    console.log(ans);
-    res.send('111')
-        // res.json({
-        //     code: 1,
-        //     msg: "success",
-        //     data: ans
-        // })
+    ans.push(obj)
+    res.json({
+        code: 1,
+        msg: "success",
+        data: ans
+    })
+}
+
+exports.getcontent = async(req, res) => {
+    let kid = req.query.kid
+    const result = await sequelize.query(`SELECT chapter.chapterName,knowledge.knowledgeName,knowledge.content,knowledge.updatedAt,chapter.chapterSort,knowledge.knowledgeSort from chapter,knowledge,chapter_merge_knowledge WHERE knowledge.id=${kid} AND kid=${kid} AND chapter.id=cid`, { type: QueryTypes.SELECT })
+    res.json({
+        code: 1,
+        msg: "success",
+        data: result[0]
+    })
 }
