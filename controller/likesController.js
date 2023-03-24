@@ -65,12 +65,14 @@ exports.islikes = async(req, res) => {
     let uid = userinfo.userinfo.id
     let kid = req.body.kid
     let hg = await redis.hget('likes', kid)
-    let uids = hg.split(",").map(Number)
     let flag = false
-    for (let i = 0; i < uids.length; i++) {
-        if (uids[i] == uid) {
-            flag = true
-            break
+    if (hg) {
+        let uids = hg.split(",").map(Number)
+        for (let i = 0; i < uids.length; i++) {
+            if (uids[i] == uid) {
+                flag = true
+                break
+            }
         }
     }
     res.json({

@@ -355,13 +355,3 @@ exports.findpassword = async(req, res) => {
         })
     }
 }
-
-exports.test = async(req, res) => {
-    let m = new Map()
-    m.set('15', '2,3,4')
-        // await redis.hset('favor', m)
-        // let k = await redis.hget('favor', m)
-    let k = await redis.hget('favor', '15')
-    console.log(typeof(k));
-    res.send('111')
-}

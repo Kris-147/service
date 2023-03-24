@@ -9,6 +9,7 @@ router
     .post("/isfavor", verifyToken(), favorController.isfavor)
     .get("/allfavor", verifyToken(), favorController.allfavor)
     .get("/count", favorController.count)
+    .get("/getallfavor", verifyToken(), favorController.getallfavor)
 
 
 module.exports = router
