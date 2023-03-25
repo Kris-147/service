@@ -7,5 +7,6 @@ router.use("/knowledge", require("./knowledge"))
 router.use("/favor", require("./favor"))
 router.use("/likes", require("./likes"))
 router.use("/suggest", require('./suggest'))
+router.use("/politics", require("./politics"))
 
 module.exports = router;

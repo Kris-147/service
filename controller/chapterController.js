@@ -193,11 +193,11 @@ exports.getAllChapter = async(req, res) => {
 }
 
 exports.usergetall = async(req, res) => {
-    const result = await sequelize.query('SELECT chapterName,knowledge.id,knowledgeName FROM chapter,knowledge,chapter_merge_knowledge WHERE chapter.id = chapter_merge_knowledge.cid AND knowledge.id = chapter_merge_knowledge.kid ORDER BY chapterSort,knowledgeSort', { type: QueryTypes.SELECT })
+    const result = await sequelize.query('SELECT chapter.id as cid,chapterName,knowledge.id,knowledgeName FROM chapter,knowledge,chapter_merge_knowledge WHERE chapter.id = chapter_merge_knowledge.cid AND knowledge.id = chapter_merge_knowledge.kid ORDER BY chapterSort,knowledgeSort', { type: QueryTypes.SELECT })
     const ans = []
     let cn = result[0].chapterName
     let kn = result[0].knowledgeName
-    let obj = { chapterName: cn, children: [{ knowledgeName: kn, kid: result[0].id }] }
+    let obj = { chapterName: cn, cid: result[0].cid, children: [{ knowledgeName: kn, kid: result[0].id }] }
     for (let i = 1; i < result.length; i++) {
         if (result[i].chapterName == cn) {
             let o = { knowledgeName: result[i].knowledgeName, kid: result[i].id }
@@ -205,7 +205,7 @@ exports.usergetall = async(req, res) => {
         } else {
             ans.push(obj)
             cn = result[i].chapterName
-            obj = { chapterName: cn, children: [{ knowledgeName: result[i].knowledgeName, kid: result[i].id }] }
+            obj = { chapterName: cn, cid: result[i].cid, children: [{ knowledgeName: result[i].knowledgeName, kid: result[i].id }] }
         }
     }
     ans.push(obj)

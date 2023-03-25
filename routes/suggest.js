@@ -7,5 +7,8 @@ const { verifyToken } = require("../utils/jwt")
 
 router
     .post("/submit", verifyToken(), suggestController.submitSug)
+    .get("/all", verifyToken(), suggestController.initTable)
+    .post("/handle", verifyToken(), suggestController.handleSug)
+    .post("/del", verifyToken(), suggestController.delSug)
 
 module.exports = router
