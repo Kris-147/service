@@ -14,5 +14,6 @@ router
     .post("/del", verifyToken(), knowledgeController.delKnowledge)
     .post("/update", verifyToken(), knowledgeController.updateKnowledge)
     .get("/content", verifyToken(), knowledgeController.getContent)
+    .get('/map', knowledgeController.getmap)
 
 module.exports = router

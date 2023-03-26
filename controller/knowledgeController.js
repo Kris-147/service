@@ -7,6 +7,9 @@ const { Op } = require("sequelize")
 const { promisify } = require('util')
 const fs = require('fs')
 const rename = promisify(fs.rename)
+    // const driver = require('../model/neo4j/index')
+const neo4j = require('neo4j-driver')
+
 
 exports.getKnowledgeByChapterId = async(req, res) => {
     const kids = await Chapter_Merge_Knowledge.findAll({
@@ -277,4 +280,22 @@ exports.updateKnowledge = async(req, res) => {
         code: 1,
         msg: "更新成功"
     })
+}
+
+exports.getmap = async(req, res) => {
+    const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+    const session = driver.session()
+    const relation = '包含'
+    const result = await session.executeRead(tx =>
+        tx.run(
+            `match (c:Chapter)-[r:${relation}]->(k:Knowledge) return c,r,k`
+        )
+    )
+    const records = result.records
+    console.log(records[0].get(0));
+    console.log(records[0].get(1));
+    console.log(records[0].get(2));
+    await session.close()
+    await driver.close()
+    res.send('11')
 }
