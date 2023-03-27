@@ -15,5 +15,6 @@ router
     .post("/update", verifyToken(), knowledgeController.updateKnowledge)
     .get("/content", verifyToken(), knowledgeController.getContent)
     .get('/map', knowledgeController.getmap)
+    .get("/relation", knowledgeController.relationByCid)
 
 module.exports = router

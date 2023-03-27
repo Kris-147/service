@@ -7,7 +7,6 @@ const { Op } = require("sequelize")
 const { promisify } = require('util')
 const fs = require('fs')
 const rename = promisify(fs.rename)
-    // const driver = require('../model/neo4j/index')
 const neo4j = require('neo4j-driver')
 
 
@@ -292,10 +291,53 @@ exports.getmap = async(req, res) => {
         )
     )
     const records = result.records
-    console.log(records[0].get(0));
-    console.log(records[0].get(1));
-    console.log(records[0].get(2));
+    let results = []
+    let nodes = []
+    let links = []
+    let chapterId = records[0].get(0).properties.chapterId.low
+    let chapterName = records[0].get(0).properties.chapterName
+    nodes.push({
+        id: chapterId,
+        chapterName: chapterName
+    })
+    for (let i = 1; i < records.length; i++) {
+        if (chapterId != records[i].get(0).properties.chapterId.low) {
+            chapterId = records[i].get(0).properties.chapterId.low
+            chapterName = records[i].get(0).properties.chapterName
+            nodes.push({
+                id: chapterId,
+                chapterName: chapterName
+            })
+        }
+    }
     await session.close()
     await driver.close()
-    res.send('11')
+    res.json({
+        nodes
+    })
+}
+
+exports.relationByCid = async(req, res) => {
+    let cid = req.query.cid
+    const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+    const session = driver.session()
+    const relation = '包含'
+    const result = await session.executeRead(tx =>
+        tx.run(
+            `match (c:Chapter)-[r:${relation}]->(k:Knowledge) where c.chapterId=${cid} return c,k`
+        )
+    )
+    let records = result.records
+    let nodes = []
+
+    for (let i = 0; i < records.length; i++) {
+        nodes.push({
+            id: records[i].get(1).properties.knowledgeId.low,
+            knowledgeName: records[i].get(1).properties.knowledgeName,
+            knowledgeSort: records[i].get(1).properties.knowledgeSort.low
+        })
+    }
+    res.json({
+        nodes
+    })
 }
