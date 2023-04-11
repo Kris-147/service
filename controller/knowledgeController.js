@@ -287,25 +287,29 @@ exports.getmap = async(req, res) => {
     const relation = '包含'
     const result = await session.executeRead(tx =>
         tx.run(
-            `match (c:Chapter)-[r:${relation}]->(k:Knowledge) return c,r,k`
+            // `match (c:Chapter)-[r:${relation}]->(k:Knowledge) return c,r,k`
+            `match (c:Chapter) return c`
         )
     )
     const records = result.records
     let results = []
     let nodes = []
-    let links = []
     let chapterId = records[0].get(0).properties.chapterId.low
-    let chapterName = records[0].get(0).properties.chapterName
+    let chapterName = records[0].get(0).properties.chapterName.low ? records[0].get(0).properties.chapterName.low : records[0].get(0).properties.chapterName
+    let chapterSort = records[0].get(0).properties.chapterSort.low
     nodes.push({
         id: chapterId,
-        chapterName: chapterName
+        chapterName: chapterName,
+        chapterSort: chapterSort
     })
     for (let i = 1; i < records.length; i++) {
         if (chapterId != records[i].get(0).properties.chapterId.low) {
             chapterId = records[i].get(0).properties.chapterId.low
-            chapterName = records[i].get(0).properties.chapterName
+            chapterName = records[i].get(0).properties.chapterName.low ? records[i].get(0).properties.chapterName.low : records[i].get(0).properties.chapterName
+            chapterSort = records[i].get(0).properties.chapterSort.low
             nodes.push({
                 id: chapterId,
+                chapterSort: chapterSort,
                 chapterName: chapterName
             })
         }

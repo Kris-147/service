@@ -1,9 +1,14 @@
 const Chapter = require("../model/chapterModel")
+const Politics = require("../model/politicsModel")
 const Chapter_Merge_Knowledge = require("../model/chapter_merge_knowledgeModel")
 const jwt = require('jsonwebtoken')
+const { promisify } = require('util')
+const verify = promisify(jwt.verify)
+const { uuid } = require('../config/config.default')
 const { createToken } = require('../utils/jwt')
 const sequelize = require("../model")
 const { Op, QueryTypes } = require("sequelize")
+const neo4j = require('neo4j-driver')
 
 exports.getallchapter = async(req, res) => {
     const { count, rows } = await Chapter.findAndCountAll({
@@ -35,65 +40,113 @@ exports.updateChapterName = async(req, res) => {
     let id = req.body.id
     let name = req.body.chapterName
     let sort = req.body.chapterSort
-    if (!name || !sort) {
-        res.status(200).json({
+    let token = req.headers.authorization
+    token = token ? token.split('Bearer ')[1] : null
+    let userinfo = await verify(token, uuid)
+    let uid = userinfo.userinfo.id
+    if (uid == 1) {
+        if (!name || !sort) {
+            res.status(200).json({
+                code: 0,
+                msg: "字段不能为空",
+                data: null
+            })
+        } else {
+            Chapter.update({
+                chapterName: name,
+                chapterSort: sort
+            }, {
+                where: {
+                    id: id
+                }
+            }).then(async r => {
+                const nc = await Chapter.findOne({
+                    where: {
+                        id: id
+                    }
+                })
+                const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+                const session = driver.session()
+                const nr = await session.executeWrite(tx =>
+                    tx.run(
+                        `match (c:Chapter) where c.chapterId=${nc.dataValues.id} set c.chapterSort=${nc.dataValues.chapterSort} set c.chapterName="${nc.dataValues.chapterName}" return c`
+                    )
+                )
+                await session.close()
+                await driver.close()
+                res.json({
+                    code: 1,
+                    msg: "修改成功",
+                    data: null
+                })
+            }).catch(err => {
+                console.log(err);
+                res.json({
+                    code: 0,
+                    msg: "字段名不能重复",
+                    data: null
+                })
+            })
+        }
+    } else {
+        res.status(401).json({
             code: 0,
-            msg: "字段不能为空",
+            msg: "unauthorization",
             data: null
         })
-    } else {
-        Chapter.update({
-            chapterName: name,
-            chapterSort: sort
-        }, {
-            where: {
-                id: id
-            }
-        }).then(r => {
-            res.json({
-                code: 1,
-                msg: "修改成功",
-                data: null
-            })
-        }).catch(err => {
-            res.json({
-                code: 0,
-                msg: "字段名不能重复",
-                data: null
-            })
-        })
     }
+
 }
 
 exports.addChapterName = async(req, res) => {
     let name = req.body.chapterName
     let sort = req.body.chapterSort
-    const n = await Chapter.findOne({
-        where: {
-            [Op.or]: [
-                { chapterName: name },
-                { chapterSort: sort }
-            ]
+    let token = req.headers.authorization
+    token = token ? token.split('Bearer ')[1] : null
+    let userinfo = await verify(token, uuid)
+    let uid = userinfo.userinfo.id
+    if (uid == 1) {
+        const n = await Chapter.findOne({
+            where: {
+                [Op.or]: [
+                    { chapterName: name },
+                    { chapterSort: sort }
+                ]
+            }
+        })
+        if (n) {
+            res.json({
+                code: 0,
+                msg: "顺序或名称不能重复",
+                data: null
+            })
+        } else {
+            const nc = await Chapter.create({
+                chapterName: name,
+                chapterSort: sort
+            })
+            const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+            const session = driver.session()
+            const nr = await session.executeWrite(tx =>
+                tx.run(
+                    `create (chater:Chapter{chapterId:${nc.dataValues.id},chapterName:"${req.body.chapterName}",chapterSort:${sort}})`
+                )
+            )
+            await session.close()
+            await driver.close()
+            res.status(201).json({
+                code: 1,
+                msg: "添加成功",
+                data: null
+            })
         }
-    })
-    if (n) {
-        res.json({
-            code: 0,
-            msg: "顺序或名称不能重复",
-            data: null
-        })
     } else {
-        const nc = await Chapter.create({
-            chapterName: name,
-            chapterSort: sort
-        })
-        res.status(201).json({
-            code: 1,
-            msg: "添加成功",
+        res.status(401).json({
+            code: 0,
+            msg: "unauthorization",
             data: null
         })
     }
-
 }
 
 exports.delChapterName = async(req, res) => {
@@ -219,9 +272,36 @@ exports.usergetall = async(req, res) => {
 exports.getcontent = async(req, res) => {
     let kid = req.query.kid
     const result = await sequelize.query(`SELECT chapter.chapterName,knowledge.knowledgeName,knowledge.content,knowledge.updatedAt,chapter.chapterSort,knowledge.knowledgeSort from chapter,knowledge,chapter_merge_knowledge WHERE knowledge.id=${kid} AND kid=${kid} AND chapter.id=cid`, { type: QueryTypes.SELECT })
-    res.json({
-        code: 1,
-        msg: "success",
-        data: result[0]
+    let p = await Politics.findAll({
+        where: {
+            kid: Number(kid)
+        }
     })
+    if (p) {
+        let politics = []
+        for (let i = 0; i < p.length; i++) {
+            politics.push({
+                // pid: p[i].dataValues.id,
+                pname: p[i].dataValues.iname,
+                pcontent: p[i].dataValues.content
+            })
+        }
+        res.json({
+            code: 1,
+            msg: "success",
+            data: {
+                knowledge: result[0],
+                politics: politics
+            }
+        })
+    } else {
+        res.json({
+            code: 1,
+            msg: "success",
+            data: {
+                knowledge: result[0]
+            }
+        })
+    }
+
 }
