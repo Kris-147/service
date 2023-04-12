@@ -1,6 +1,9 @@
 const User = require('../model/userModel')
 const jwt = require('jsonwebtoken')
 const { createToken } = require('../utils/jwt')
+const { promisify } = require('util')
+const verify = promisify(jwt.verify)
+const { uuid } = require('../config/config.default')
 const svgCaptcha = require('svg-captcha')
 const { Op } = require("sequelize")
 const { redis } = require('../model/redis/index')
@@ -76,11 +79,14 @@ exports.getAllUser = async(req, res) => {
     })
     let userData = []
     for (let i = 0; i < rows.length; i++) {
-        let { id, username, userrole } = rows[i].dataValues
+        let { id, username, userrole, email, createdAt, updatedAt } = rows[i].dataValues
         let u = {
             id: id,
             username: username,
-            userrole: userrole
+            userrole: userrole,
+            email: email,
+            createdAt: createdAt,
+            updatedAt: updatedAt
         }
         userData.push(u)
     }
@@ -94,55 +100,55 @@ exports.getAllUser = async(req, res) => {
 exports.updateUser = async(req, res) => {
     let id = req.body.id
     let username = req.body.username
-    if (username) {
-        let u = await User.findOne({
-            where: {
-                username: username
-            }
+    let email = req.body.email
+    if (!username) {
+        res.json({
+            code: 0,
+            msg: "用户名不能为空"
         })
-        if (u) {
-            res.status(409).json({
-                code: 0,
-                msg: "用户名不能重复",
+    } else if (!email) {
+        res.json({
+            code: 0,
+            msg: "邮箱不能为空"
+        })
+    } else {
+        User.update({
+            username: username,
+            email: email
+        }, {
+            where: {
+                id: id
+            }
+        }).then(r => {
+            res.json({
+                code: 1,
+                msg: "修改成功",
                 data: null
             })
-        } else {
-            User.update({
-                username: username
-            }, {
-                where: {
-                    id: id
-                }
-            }).then(r => {
-                res.json({
-                    code: 1,
-                    msg: "修改成功",
-                    data: null
-                })
-            }).catch(err => {
-                res.status(500).json({
-                    code: 0,
-                    msg: "修改失败",
-                    data: null
-                })
+        }).catch(err => {
+            console.log(err);
+            res.json({
+                code: 0,
+                msg: "邮箱和用户名不能重复",
+                data: null
             })
-        }
-    } else {
-        res.status(200).json({
-            code: 0,
-            msg: "字段不能为空",
-            data: null
         })
     }
 }
 
 exports.addUser = async(req, res) => {
     let name = req.body.username
-    console.log(name);
+    let email = req.body.email
     if (!name) {
         res.status(200).json({
             code: 0,
-            msg: "字段不能为空",
+            msg: "用户名不能为空",
+            data: null
+        })
+    } else if (!email) {
+        res.status(200).json({
+            code: 0,
+            msg: "邮箱不能为空",
             data: null
         })
     } else {
@@ -151,7 +157,6 @@ exports.addUser = async(req, res) => {
                 username: name
             }
         })
-        console.log(u);
         if (u) {
             res.status(409).json({
                 code: 0,
@@ -161,8 +166,9 @@ exports.addUser = async(req, res) => {
         } else {
             User.create({
                 username: name,
-                password: "123456",
-                userrole: "user"
+                password: "12345678",
+                userrole: "user",
+                email: email
             }).then(r => {
                 res.status(201).json({
                     code: 1,
@@ -202,7 +208,6 @@ exports.delUser = async(req, res) => {
 }
 
 exports.searchUser = async(req, res) => {
-    console.log(req.query.searchName);
     const { count, rows } = await User.findAndCountAll({
         offset: Number(req.query.offset),
         limit: Number(req.query.limit),
@@ -215,11 +220,14 @@ exports.searchUser = async(req, res) => {
     })
     let userData = []
     for (let i = 0; i < rows.length; i++) {
-        let { id, username, userrole } = rows[i].dataValues
+        let { id, username, userrole, email, createdAt, updatedAt } = rows[i].dataValues
         let u = {
             id: id,
             username: username,
-            userrole: userrole
+            userrole: userrole,
+            email: email,
+            createdAt: createdAt,
+            updatedAt: updatedAt
         }
         userData.push(u)
     }
@@ -354,4 +362,33 @@ exports.findpassword = async(req, res) => {
             data: null
         })
     }
+}
+
+exports.resetpwd = async(req, res) => {
+    let id = req.body.id
+    let token = req.headers.authorization
+    token = token ? token.split('Bearer ')[1] : null
+    let userinfo = await verify(token, uuid)
+    let uid = userinfo.userinfo.id
+    if (uid == 1) {
+        const u = await User.update({
+            password: "12345678"
+        }, {
+            where: {
+                id: id
+            }
+        })
+        res.json({
+            code: 1,
+            msg: "success",
+            data: null
+        })
+    } else {
+        res.status(401).json({
+            code: 0,
+            msg: "unauthorization",
+            data: null
+        })
+    }
+
 }

@@ -151,45 +151,65 @@ exports.addChapterName = async(req, res) => {
 
 exports.delChapterName = async(req, res) => {
     let id = req.body.id
-    const cmk = await Chapter_Merge_Knowledge.findAll({
-        where: {
-            cid: id
-        }
-    })
-    if (cmk.length) {
-        res.json({
-            code: 0,
-            msg: "删除失败，章节内还含有知识点"
-        })
-    } else {
-        const c = await Chapter.findOne({
+    let token = req.headers.authorization
+    token = token ? token.split('Bearer ')[1] : null
+    let userinfo = await verify(token, uuid)
+    let uid = userinfo.userinfo.id
+    if (uid == 1) {
+        const cmk = await Chapter_Merge_Knowledge.findAll({
             where: {
-                id: id
+                cid: id
             }
         })
-        if (c) {
-            Chapter.destroy({
+        if (cmk.length) {
+            res.json({
+                code: 0,
+                msg: "删除失败，章节内还含有知识点"
+            })
+        } else {
+            const c = await Chapter.findOne({
                 where: {
                     id: id
                 }
-            }).then(r => {
-                res.json({
-                    code: 1,
-                    msg: "删除成功",
+            })
+            if (c) {
+                Chapter.destroy({
+                    where: {
+                        id: id
+                    }
+                }).then(async r => {
+                    const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+                    const session = driver.session()
+                    const nr = await session.executeWrite(tx =>
+                        tx.run(
+                            `match (c:Chapter) where c.chapterId=${id} delete c`
+                        )
+                    )
+                    await session.close()
+                    await driver.close()
+                    res.json({
+                        code: 1,
+                        msg: "删除成功",
+                    })
+                }).catch(err => {
+                    res.json({
+                        code: 0,
+                        msg: "删除失败",
+                    })
                 })
-            }).catch(err => {
+            } else {
                 res.json({
                     code: 0,
-                    msg: "删除失败",
+                    msg: "不存在该章节"
                 })
-            })
-        } else {
-            res.json({
-                code: 0,
-                msg: "不存在该章节"
-            })
+            }
         }
-
+    } else {
+        res.status(401).json({
+            code: 0,
+            msg: "unauthorization",
+            data: null
+        })
     }
 }
 

@@ -158,12 +158,14 @@ exports.addKnowledge = async(req, res) => {
                 msg: "知识点名称不能重复",
                 data: null
             })
+            return;
         } else if (r[i].dataValues.knowledgeSort == req.body.knowledgeSort) {
             res.json({
                 code: 0,
                 msg: "同一章节的知识点顺序不能重复",
                 data: null
             })
+            return;
         }
     }
     const insertk = await Knowledge.create({
@@ -175,6 +177,21 @@ exports.addKnowledge = async(req, res) => {
         cid: req.body.chapterId,
         kid: insertk.dataValues.id
     })
+    const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+    const session = driver.session()
+    const nr = await session.executeWrite(tx =>
+        tx.run(
+            `create (k:Knowledge{knowledgeId:${insertk.dataValues.id},knowledgeName:${insertk.dataValues.knowledgeName},knowledgeSort:${insertk.dataValues.knowledgeSort}}) return k`
+        )
+    )
+    const nr2 = await session.executeWrite(tx =>
+        tx.run(
+            `match (c:Chapter),(k:Knowledge) where c.chapterId=${req.body.chapterId} and k.knowledgeId=${insertk.dataValues.id} create (c)-[r:包含]->(k) return r`
+        )
+    )
+
+    await session.close()
+    await driver.close()
     res.json({
         code: 1,
         msg: "添加成功"
@@ -183,16 +200,31 @@ exports.addKnowledge = async(req, res) => {
 
 exports.delKnowledge = async(req, res) => {
     let kid = req.body.id
-    const delk = Knowledge.destroy({
+    const delk = await Knowledge.destroy({
         where: {
             id: kid
         }
     })
-    const delmerge = Chapter_Merge_Knowledge.destroy({
+    const cid = await Chapter_Merge_Knowledge.findOne({
         where: {
             kid: kid
         }
     })
+    const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+    const session = driver.session()
+    const nr = await session.executeWrite(tx =>
+        tx.run(
+            `match (c:Chapter)-[r:包含]-(k:Knowledge) where c.chapterId=${cid.dataValues.cid} and k.knowledgeId=${kid} delete k,r`
+        )
+    )
+    await session.close()
+    await driver.close()
+    const delmerge = await Chapter_Merge_Knowledge.destroy({
+        where: {
+            kid: kid
+        }
+    })
+
     res.json({
         code: 1,
         msg: "删除成功"
@@ -236,37 +268,7 @@ exports.updateKnowledge = async(req, res) => {
         return;
     }
 
-    const skn = await Knowledge.findAll({
-        where: {
-            knowledgeName: kn
-        }
-    })
-    for (let i = 0; i < skn.length; i++) {
-        if (skn[i].dataValues.id != id) {
-            res.json({
-                code: 0,
-                msg: "知识点名称不能重复"
-            })
-            return;
-        }
-    }
-
-    const sks = await Knowledge.findAll({
-        where: {
-            knowledgeSort: ks
-        }
-    })
-    for (let i = 0; i < sks.length; i++) {
-        if (sks[i].dataValues.id != id) {
-            res.json({
-                code: 0,
-                msg: "知识点顺序不能重复"
-            })
-            return;
-        }
-    }
-
-    const uk = await Knowledge.update({
+    Knowledge.update({
         knowledgeName: kn,
         knowledgeSort: ks,
         content: c
@@ -274,10 +276,33 @@ exports.updateKnowledge = async(req, res) => {
         where: {
             id: id
         }
-    })
-    res.json({
-        code: 1,
-        msg: "更新成功"
+    }).then(async r => {
+        const nk = await Knowledge.findOne({
+            where: {
+                id: id
+            }
+        })
+        const driver = neo4j.driver('neo4j://localhost:7687', neo4j.auth.basic('neo4j', '12345678'))
+        const session = driver.session()
+        const nr = await session.executeWrite(tx =>
+            tx.run(
+                `match (k:Knowledge) where k.knowledgeId=${nk.dataValues.id} set k.knowledgeSort=${nk.dataValues.knowledgeSort} set k.knowledgeName="${nk.dataValues.knowledgeName}" return k`
+            )
+        )
+        await session.close()
+        await driver.close()
+        res.json({
+            code: 1,
+            msg: "修改成功",
+            data: null
+        })
+    }).catch(err => {
+        console.log(err);
+        res.json({
+            code: 0,
+            msg: "字段名不能重复",
+            data: null
+        })
     })
 }
 
