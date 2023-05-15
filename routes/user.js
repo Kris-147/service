@@ -17,5 +17,7 @@ router
     .post('/userreg', validator.reg, userController.userreg)
     .post('/findpassword', validator.find, userController.findpassword)
     .post("/reset", verifyToken(), userController.resetpwd)
+    .post("/getCode", userController.getCode)
+    .post("/jiaoyan", userController.jiaoyan)
 
 module.exports = router

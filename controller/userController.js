@@ -7,6 +7,10 @@ const { uuid } = require('../config/config.default')
 const svgCaptcha = require('svg-captcha')
 const { Op } = require("sequelize")
 const { redis } = require('../model/redis/index')
+const mailSend = require("../utils/mail")
+const LocalStorage = require("node-localstorage").LocalStorage
+localStorage = new LocalStorage('./scratch')
+
 
 exports.login = async(req, res) => {
     let loginInfo = {
@@ -280,48 +284,69 @@ exports.userreg = async(req, res) => {
     let username = req.body.username
     let password = req.body.password
     let email = req.body.email
-    const u = await User.findAll({
+    let code = req.body.code
+
+    const e = await User.findAll({
         where: {
-            username: username
+            email: email
         }
     })
-    if (u.length) {
+    if (e.length) {
         res.json({
             code: 0,
-            msg: "用户名已存在",
+            msg: "邮箱已存在",
             data: null
         })
+        return
     } else {
-        const e = await User.findAll({
-            where: {
-                email: email
-            }
-        })
-        if (e.length) {
+        let findPass = localStorage.getItem(req.body.email)
+        findPass = JSON.parse(findPass)
+        const nowtime = new Date().getTime()
+        if (nowtime - findPass.time >= 60 * 1000) {
             res.json({
                 code: 0,
-                msg: "邮箱已存在",
-                data: null
+                msg: "验证码已过期"
             })
-        } else {
-            const n = await User.create({
-                username: username,
-                password: password,
-                email: email
+            return
+        }
+        if (findPass.code == req.body.code) {
+            const u = await User.findAll({
+                where: {
+                    username: username
+                }
             })
-            if (n) {
+            if (u.length) {
                 res.json({
-                    code: 1,
-                    msg: "注册成功",
+                    code: 0,
+                    msg: "用户名已存在",
                     data: null
                 })
             } else {
-                res.json({
-                    code: 0,
-                    msg: "未知错误",
-                    data: null
+                const n = await User.create({
+                    username: username,
+                    password: password,
+                    email: email
                 })
+                if (n) {
+                    localStorage.removeItem(findPass.email)
+                    res.json({
+                        code: 1,
+                        msg: "注册成功",
+                        data: null
+                    })
+                } else {
+                    res.json({
+                        code: 0,
+                        msg: "未知错误",
+                        data: null
+                    })
+                }
             }
+        } else {
+            res.json({
+                code: 0,
+                msg: "验证码错误"
+            })
         }
     }
 }
@@ -329,37 +354,57 @@ exports.userreg = async(req, res) => {
 exports.findpassword = async(req, res) => {
     let email = req.body.email
     let password = req.body.password
-    const e = await User.findAll({
-        where: {
-            email: email
+    let code = req.body.code
+
+    let findPass = localStorage.getItem(req.body.email)
+    findPass = JSON.parse(findPass)
+    const nowtime = new Date().getTime()
+    if (nowtime - findPass.time >= 60 * 1000) {
+        res.json({
+            code: 0,
+            msg: "验证码已过期"
+        })
+        return
+    }
+    if (findPass.code == req.body.code) {
+        if (!req.body.password) {
+            res.json({
+                code: 0,
+                msg: "密码不能为空"
+            })
+            return
         }
-    })
-    if (e.length) {
-        const p = await User.update({
-            password: password
-        }, {
+        const e = await User.findAll({
             where: {
                 email: email
             }
         })
-        if (p) {
-            res.json({
-                code: 1,
-                msg: "success",
-                data: null
+        if (e.length) {
+            let updPass = await User.update({
+                password: req.body.password
+            }, {
+                where: {
+                    email: req.body.email
+                }
             })
+            if (updPass) {
+                localStorage.removeItem(findPass.email)
+                res.json({
+                    code: 1,
+                    msg: "修改成功"
+                })
+            }
         } else {
             res.json({
                 code: 0,
-                msg: "未知错误",
+                msg: "邮箱不存在",
                 data: null
             })
         }
     } else {
         res.json({
             code: 0,
-            msg: "邮箱不存在",
-            data: null
+            msg: "验证码错误"
         })
     }
 }
@@ -391,4 +436,94 @@ exports.resetpwd = async(req, res) => {
         })
     }
 
+}
+
+exports.getCode = async(req, res) => {
+    let email = req.body.email
+    console.log(email);
+    if (!email) {
+        res.json({
+            code: 0,
+            msg: "邮箱不能为空"
+        })
+        return
+    }
+    const exist = await User.findOne({
+        where: {
+            email: email
+        }
+    })
+    if (exist) {
+        const cap = svgCaptcha.create({
+            inverse: false,
+            fontSize: 30,
+            noise: 3,
+            width: 100,
+            height: 40
+        })
+        req.session.emailCaptcha = cap.text.toLowerCase()
+        let findPass = {}
+        findPass.email = email
+        let time = new Date().getTime()
+        findPass.time = time
+        findPass.code = cap.text.toLowerCase()
+        findPass = JSON.stringify(findPass)
+        localStorage.setItem(email, findPass)
+        let m = {
+            from: "<15280889836@163.com>",
+            subject: "验证码",
+            to: email,
+            text: "修改密码验证码为：" + cap.text.toLowerCase() + "(有效时间1分钟)"
+        }
+        mailSend(m)
+        res.json({
+            code: 1,
+            msg: "发送成功"
+        })
+    } else {
+        res.json({
+            code: 0,
+            msg: "邮箱不存在"
+        })
+    }
+}
+
+exports.jiaoyan = async(req, res) => {
+    let findPass = localStorage.getItem(req.body.email)
+    findPass = JSON.parse(findPass)
+    const nowtime = new Date().getTime()
+    if (nowtime - findPass.time >= 60 * 1000) {
+        res.json({
+            code: 0,
+            msg: "验证码已过期"
+        })
+        return
+    }
+    if (findPass.code == req.body.code) {
+        if (!req.body.password) {
+            res.json({
+                code: 0,
+                msg: "密码不能为空"
+            })
+        }
+        let updPass = await User.update({
+            password: req.body.password
+        }, {
+            where: {
+                email: req.body.email
+            }
+        })
+        if (updPass) {
+            localStorage.removeItem(findPass.email)
+            res.json({
+                code: 1,
+                msg: "修改成功"
+            })
+        }
+    } else {
+        res.json({
+            code: 0,
+            msg: "验证码错误"
+        })
+    }
 }

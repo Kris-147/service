@@ -15,30 +15,37 @@ exports.submitSug = async(req, res) => {
     let userinfo = await verify(token, uuid)
     let uid = userinfo.userinfo.id
     let content = req.body.content
-    if (content) {
-        let r = await Suggest.create({
-            uid: uid,
-            content: content,
-            handle: 0
-        })
-        if (r) {
-            res.json({
-                code: 1,
-                msg: "提交成功",
-                data: null
+    if (token) {
+        if (content) {
+            let r = await Suggest.create({
+                uid: uid,
+                content: content,
+                handle: 0
             })
+            if (r) {
+                res.json({
+                    code: 1,
+                    msg: "提交成功",
+                    data: null
+                })
+            } else {
+                res.json({
+                    code: 0,
+                    msg: "未知错误",
+                    data: null
+                })
+            }
         } else {
             res.json({
                 code: 0,
-                msg: "未知错误",
+                msg: "内容不能为空",
                 data: null
             })
         }
     } else {
         res.json({
             code: 0,
-            msg: "内容不能为空",
-            data: null
+            msg: "请先登录"
         })
     }
 }
