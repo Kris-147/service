@@ -149,12 +149,14 @@ exports.addUser = async(req, res) => {
             msg: "用户名不能为空",
             data: null
         })
+        return
     } else if (!email) {
         res.status(200).json({
             code: 0,
             msg: "邮箱不能为空",
             data: null
         })
+        return
     } else {
         const u = await User.findOne({
             where: {
@@ -164,10 +166,24 @@ exports.addUser = async(req, res) => {
         if (u) {
             res.status(409).json({
                 code: 0,
-                msg: "用户名不能重复",
+                msg: "用户名已存在",
                 data: null
             })
+            return
         } else {
+            const ee = await User.findOne({
+                where: {
+                    email: email
+                }
+            })
+            if (ee) {
+                res.status(409).json({
+                    code: 0,
+                    msg: "邮箱已存在",
+                    data: null
+                })
+                return
+            }
             User.create({
                 username: name,
                 password: "12345678",
@@ -448,12 +464,49 @@ exports.getCode = async(req, res) => {
         })
         return
     }
-    const exist = await User.findOne({
-        where: {
-            email: email
+    let type = req.body.type
+    if (type == "find") {
+        const exist = await User.findOne({
+            where: {
+                email: email
+            }
+        })
+        if (exist) {
+            const cap = svgCaptcha.create({
+                inverse: false,
+                fontSize: 30,
+                noise: 3,
+                width: 100,
+                height: 40
+            })
+            req.session.emailCaptcha = cap.text.toLowerCase()
+            let findPass = {}
+            findPass.email = email
+            let time = new Date().getTime()
+            findPass.time = time
+            findPass.code = cap.text.toLowerCase()
+            findPass = JSON.stringify(findPass)
+            localStorage.setItem(email, findPass)
+            let m = {
+                from: "<15280889836@163.com>",
+                subject: "验证码",
+                to: email,
+                text: "修改密码验证码为：" + cap.text.toLowerCase() + "(有效时间1分钟)"
+            }
+            mailSend(m)
+            res.json({
+                code: 1,
+                msg: "发送成功"
+            })
+            return
+        } else {
+            res.json({
+                code: 0,
+                msg: "邮箱不存在"
+            })
+            return
         }
-    })
-    if (exist) {
+    } else if (type == "reg") {
         const cap = svgCaptcha.create({
             inverse: false,
             fontSize: 30,
@@ -480,11 +533,7 @@ exports.getCode = async(req, res) => {
             code: 1,
             msg: "发送成功"
         })
-    } else {
-        res.json({
-            code: 0,
-            msg: "邮箱不存在"
-        })
+        return
     }
 }
 

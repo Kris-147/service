@@ -48,7 +48,7 @@ exports.updateChapterName = async(req, res) => {
         if (!name || !sort) {
             res.status(200).json({
                 code: 0,
-                msg: "字段不能为空",
+                msg: "章节名称或章节顺序不能为空",
                 data: null
             })
         } else {
@@ -83,7 +83,7 @@ exports.updateChapterName = async(req, res) => {
                 console.log(err);
                 res.json({
                     code: 0,
-                    msg: "字段名不能重复",
+                    msg: "章节名称或章节顺序不能重复",
                     data: null
                 })
             })
@@ -117,7 +117,7 @@ exports.addChapterName = async(req, res) => {
         if (n) {
             res.json({
                 code: 0,
-                msg: "顺序或名称不能重复",
+                msg: "章节顺序或名称不能重复",
                 data: null
             })
         } else {
